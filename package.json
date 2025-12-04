@@ -1,0 +1,14 @@
+{
+  "dependencies": {
+    "@coinbase/agentkit": "^0.10.3",
+    "ethers": "^6.16.0",
+    "openai": "^6.9.1",
+    "viem": "^2.41.2"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^6.1.0",
+    "hardhat": "^2.27.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  }
+}
