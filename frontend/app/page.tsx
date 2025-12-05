@@ -12,7 +12,17 @@ import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { Trash, Play, Wallet } from "lucide-react";
 
-const ABI: any[] = [ /* ...paste your ABI here... */ ];
+// TaskAutomator ABI from Hardhat build artifacts
+const ABI: any[] = [
+  { "anonymous": false, "inputs": [{ "indexed": false, "internalType": "uint256", "name": "taskId", "type": "uint256" }], "name": "TaskCancelled", "type": "event" },
+  { "anonymous": false, "inputs": [{ "indexed": false, "internalType": "uint256", "name": "taskId", "type": "uint256" }, { "indexed": false, "internalType": "address", "name": "user", "type": "address" }, { "indexed": false, "internalType": "string", "name": "action", "type": "string" }], "name": "TaskCreated", "type": "event" },
+  { "anonymous": false, "inputs": [{ "indexed": false, "internalType": "uint256", "name": "taskId", "type": "uint256" }, { "indexed": false, "internalType": "string", "name": "action", "type": "string" }], "name": "TaskExecuted", "type": "event" },
+  { "inputs": [{ "internalType": "uint256", "name": "taskId", "type": "uint256" }], "name": "cancelTask", "outputs": [], "stateMutability": "nonpayable", "type": "function" },
+  { "inputs": [{ "internalType": "string", "name": "action", "type": "string" }, { "internalType": "uint256", "name": "amount", "type": "uint256" }, { "internalType": "uint256", "name": "interval", "type": "uint256" }], "name": "createTask", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "nonpayable", "type": "function" },
+  { "inputs": [{ "internalType": "uint256", "name": "taskId", "type": "uint256" }], "name": "runTask", "outputs": [], "stateMutability": "nonpayable", "type": "function" },
+  { "inputs": [], "name": "taskCount", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" },
+  { "inputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "name": "tasks", "outputs": [{ "internalType": "address", "name": "user", "type": "address" }, { "internalType": "uint256", "name": "amount", "type": "uint256" }, { "internalType": "string", "name": "action", "type": "string" }, { "internalType": "uint256", "name": "nextExecution", "type": "uint256" }, { "internalType": "uint256", "name": "interval", "type": "uint256" }, { "internalType": "bool", "name": "active", "type": "bool" }], "stateMutability": "view", "type": "function" }
+];
 const DEFAULT_CONTRACT_ADDRESS = "";
 
 export default function Page() {
