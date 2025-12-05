@@ -127,11 +127,23 @@ export default function Page() {
 
   const connectWallet = async () => {
     if (!provider) return alert('Install MetaMask or Base wallet');
+
+    // request user accounts
+    await provider.send("eth_requestAccounts", []);
+
     const s = provider.getSigner();
     const addr = await s.getAddress();
     setSigner(s);
     setAccount(addr);
-    if (contractAddress) setContract(new ethers.Contract(contractAddress, ABI, s));
+
+    // make sure contract address is valid
+    if (!contractAddress) return alert("Enter contract address first");
+
+    const c = new ethers.Contract(contractAddress, ABI, s);
+    setContract(c);
+
+    // optionally load tasks immediately
+    await loadTasks();
   };
 
   const loadTasks = async () => {
