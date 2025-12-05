@@ -23,6 +23,32 @@ const ABI: any[] = [
   { "inputs": [], "name": "taskCount", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" },
   { "inputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "name": "tasks", "outputs": [{ "internalType": "address", "name": "user", "type": "address" }, { "internalType": "uint256", "name": "amount", "type": "uint256" }, { "internalType": "string", "name": "action", "type": "string" }, { "internalType": "uint256", "name": "nextExecution", "type": "uint256" }, { "internalType": "uint256", "name": "interval", "type": "uint256" }, { "internalType": "bool", "name": "active", "type": "bool" }], "stateMutability": "view", "type": "function" }
 ];
+const templates = [
+  {
+    title: "Swap 10 USDC → ETH every Friday",
+    action: "Swap 10 USDC to ETH every Friday using AgentKit on Base (use 0x/Uniswap router).",
+    amount: 10,
+    interval: 7 * 24 * 60 * 60,
+  },
+  {
+    title: "Send rent on the 1st",
+    action: "Send rent to landlord on the 1st of each month from smart wallet.",
+    amount: 1000,
+    interval: 30 * 24 * 60 * 60,
+  },
+  {
+    title: "Auto-buy friend’s NFT if under 0.005 ETH",
+    action: "Auto-buy friend's NFT if price drops below 0.005 ETH; monitor listings hourly.",
+    amount: 0,
+    interval: 60 * 60,
+  },
+  {
+    title: "Notify me when balance < X",
+    action: "Notify me when my balance drops below threshold; check every 10 minutes.",
+    amount: 0,
+    interval: 600,
+  },
+];
 const DEFAULT_CONTRACT_ADDRESS = "";
 
 export default function Page() {
@@ -39,6 +65,12 @@ export default function Page() {
   const [action, setAction] = useState("");
   const [amount, setAmount] = useState<number>(0);
   const [interval, setInterval] = useState<number>(60);
+  const [status, setStatus] = useState<string>("");
+  const [notifications, setNotifications] = useState<string[]>([]);
+
+  const pushNotification = (msg: string) => {
+    setNotifications((prev) => [`${new Date().toLocaleTimeString()} — ${msg}`, ...prev].slice(0, 8));
+  };
 
   // mark component as mounted (client-only rendering)
   useEffect(() => {
@@ -60,6 +92,38 @@ export default function Page() {
     if (!provider || !contractAddress) return;
     setContract(new ethers.Contract(contractAddress, ABI, provider));
   }, [mounted, provider, contractAddress]);
+
+  // Listen for on-chain events to surface agent/contract activity
+  useEffect(() => {
+    if (!contract) return;
+
+    const onCreated = (taskId: any, user: string, action: string) => {
+      pushNotification(`Task #${Number(taskId)} created by ${user} (${action})`);
+    };
+    const onExecuted = (taskId: any, action: string) => {
+      pushNotification(`Task #${Number(taskId)} executed (${action})`);
+    };
+    const onCancelled = (taskId: any) => {
+      pushNotification(`Task #${Number(taskId)} cancelled`);
+    };
+
+    contract.on("TaskCreated", onCreated);
+    contract.on("TaskExecuted", onExecuted);
+    contract.on("TaskCancelled", onCancelled);
+
+    return () => {
+      contract.off("TaskCreated", onCreated);
+      contract.off("TaskExecuted", onExecuted);
+      contract.off("TaskCancelled", onCancelled);
+    };
+  }, [contract]);
+
+  const applyTemplate = (tpl: (typeof templates)[number]) => {
+    setAction(tpl.action);
+    setAmount(tpl.amount);
+    setInterval(tpl.interval);
+    setStatus(`Loaded template: ${tpl.title}`);
+  };
 
   const connectWallet = async () => {
     if (!provider) return alert('Install MetaMask or Base wallet');
@@ -90,6 +154,9 @@ export default function Page() {
         });
       }
       setTasks(arr.reverse());
+      const note = `Loaded ${arr.length} task(s)`;
+      setStatus(note);
+      pushNotification(note);
     } catch (err) {
       console.error(err);
       alert('Failed to load tasks');
@@ -107,6 +174,8 @@ export default function Page() {
       setAmount(0);
       setInterval(60);
       await loadTasks();
+      setStatus('Task created and queued for agent/Run');
+      pushNotification('Task created');
     } catch (err) {
       console.error(err);
       alert('Create task failed');
@@ -118,6 +187,7 @@ export default function Page() {
     try {
       const tx = await contract.connect(signer).cancelTask(id);
       await tx.wait();
+      pushNotification(`Cancelled task #${id}`);
       await loadTasks();
     } catch (err) {
       console.error(err);
@@ -129,6 +199,7 @@ export default function Page() {
     try {
       const tx = await contract.connect(signer).runTask(id);
       await tx.wait();
+      pushNotification(`Manually ran task #${id}`);
       await loadTasks();
     } catch (err) {
       console.error(err);
@@ -141,13 +212,37 @@ export default function Page() {
     <div className="min-h-screen bg-slate-50 p-8">
       <div className="max-w-5xl mx-auto space-y-6">
         <header className="flex items-center justify-between">
-          <h1 className="text-3xl font-extrabold">TaskAutomator — Dashboard</h1>
+          <div>
+            <p className="text-sm uppercase tracking-wide text-slate-500">Base Mini-Agent</p>
+            <h1 className="text-3xl font-extrabold">Onchain Personal Assistant</h1>
+            <p className="text-sm text-slate-600">Build timed actions the agent will execute (swaps, rent, NFT snipes, balance alerts).</p>
+          </div>
           <div className="flex items-center gap-2">
             <Input placeholder="Contract address" value={contractAddress} onChange={(e) => setContractAddress(e.target.value)} className="w-96" />
             <Button onClick={loadTasks}>Load</Button>
             <Button onClick={connectWallet}>{account ? `${account.slice(0,6)}...${account.slice(-4)}` : 'Connect'}</Button>
           </div>
         </header>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Quick templates</CardTitle>
+            <p className="text-sm text-slate-600">Prefill the task form with common agent instructions.</p>
+          </CardHeader>
+          <CardContent className="grid md:grid-cols-2 gap-3">
+            {templates.map((tpl) => (
+              <button
+                key={tpl.title}
+                onClick={() => applyTemplate(tpl)}
+                className="text-left border rounded-lg p-3 bg-white hover:border-slate-400 transition"
+              >
+                <div className="font-semibold">{tpl.title}</div>
+                <div className="text-xs text-slate-600 mt-1">{tpl.action}</div>
+                <div className="text-xs text-slate-500 mt-1">Interval: {tpl.interval}s</div>
+              </button>
+            ))}
+          </CardContent>
+        </Card>
 
         <div className="grid md:grid-cols-2 gap-6">
           <Card>
@@ -174,7 +269,11 @@ export default function Page() {
           </Card>
 
           <Card>
-            <CardHeader><CardTitle>Tasks</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle>Tasks</CardTitle>
+              <p className="text-xs text-slate-600">Agent will call <code>runTask</code> when Next execution has passed. Hit Load to refresh.</p>
+              {status && <p className="text-xs text-green-700">{status}</p>}
+            </CardHeader>
             <CardContent>
               <div className="space-y-2">
                 {loading && <div>Loading tasks...</div>}
@@ -198,6 +297,19 @@ export default function Page() {
         </div>
 
         <Separator />
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Agent Notifications</CardTitle>
+            <p className="text-xs text-slate-600">Recent actions and updates. The off-chain agent logs to its console; this panel shows quick UI breadcrumbs.</p>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {notifications.length === 0 && <div className="text-sm text-slate-500">No notifications yet.</div>}
+            {notifications.map((n, idx) => (
+              <div key={idx} className="text-sm border rounded p-2 bg-white">{n}</div>
+            ))}
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
